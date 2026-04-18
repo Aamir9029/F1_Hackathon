@@ -17,12 +17,19 @@ def _extract_tyre_friction(input_data):
     return 0.9
 
 
-def simulate_lap(car, track_segments, tyre_friction):
+def simulate_lap(car, track_segments, tyre_friction, fuel, tyre_health):
     actions = []
     current_speed = 0.0
 
+    # Track state
+    current_fuel = fuel
+    current_tyre_health = tyre_health
+
     for i, segment in enumerate(track_segments):
         next_segment = track_segments[i + 1] if i + 1 < len(track_segments) else None
+
+        if current_fuel <= 0:
+            raise Exception("Out of fuel ❌")
 
         if segment["type"] == "straight":
             action, current_speed = plan_straight_action(
@@ -34,14 +41,35 @@ def simulate_lap(car, track_segments, tyre_friction):
             )
             actions.append(action)
 
+            # Fuel consumption (simple model)
+            current_fuel -= segment["length_m"] * 0.0005
+
+            # Tyre degradation (straight)
+            current_tyre_health -= 0.0001 * segment["length_m"]
+
+            current_tyre_health = max(0.5, current_tyre_health)
+
         elif segment["type"] == "corner":
-            action, current_speed = handle_corner(segment, current_speed, tyre_friction)
+            action, current_speed = handle_corner(
+                car,
+                segment,
+                current_speed,
+                tyre_friction * current_tyre_health
+            )
             actions.append(action)
+
+            # Fuel consumption (corner)
+            current_fuel -= segment["length_m"] * 0.0003
+
+            # Tyre degradation (corner heavier)
+            current_tyre_health -= 0.0003 * segment["length_m"]
+
+            current_tyre_health = max(0.5, current_tyre_health)
 
     return actions
 
 
-def build_level1_strategy(input_data):
+def build_strategy_with_pit(input_data):
     car = input_data["car"]
     race = input_data.get("race", {"laps": 1})
     track = input_data["track"]
@@ -49,21 +77,40 @@ def build_level1_strategy(input_data):
     tyre_friction = _extract_tyre_friction(input_data)
     initial_tyre_id = 1  # you can change later
 
+    fuel = car.get("initial_fuel", car.get("fuel_tank_capacity", 100))
+    tyre_health = 1.0
+    tyre_id = 1
+
     laps_output = []
 
     for lap_num in range(1, race["laps"] + 1):
 
+        pit_enter = False
+
+        # Simple pit rule: pit if tyre health too low or fuel too low
+        if tyre_health < 0.65 or fuel < 20:
+            pit_enter = True
+            tyre_health = 1.0
+            fuel = car.get("fuel_tank_capacity", 100)
+            tyre_id += 1
+
         segment_actions = simulate_lap(
             car,
             track["segments"],
-            tyre_friction
+            tyre_friction,
+            fuel,
+            tyre_health
         )
+
+        # Rough carry-over (simulate consumption per lap)
+        fuel -= 10
+        tyre_health -= 0.1
 
         lap_plan = {
             "lap": lap_num,
             "segments": segment_actions,
             "pit": {
-                "enter": False
+                "enter": pit_enter
             }
         }
 
@@ -76,4 +123,4 @@ def build_level1_strategy(input_data):
 
 
 def build_strategy(input_data):
-    return build_level1_strategy(input_data)
+    return build_strategy_with_pit(input_data)
