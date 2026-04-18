@@ -1,0 +1,21 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Simulation Outputs
+output.json
+output*.json
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
