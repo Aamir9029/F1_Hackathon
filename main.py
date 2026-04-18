@@ -2,7 +2,7 @@ import json
 import sys
 import os
 from scanner import Telemetry
-import sys
+from src.physics.kinematics import get_max_corner_speed, get_distance_to_reach_speed
 
 from src.algorithms.strategy import build_strategy
 
