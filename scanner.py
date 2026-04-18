@@ -45,6 +45,24 @@ class Telemetry:
             weather_conditions=weather_conds
         )
 
+    def to_dict(self) -> dict:
+        """Serializes the full Telemetry object back to the canonical JSON format."""
+        return {
+            "car": self.car.to_dict(),
+            "race": self.race.to_dict(),
+            "track": self.track.to_dict(),
+            "tyres": {
+                "properties": {
+                    compound: props.to_dict()
+                    for compound, props in self.tyre_properties.items()
+                }
+            },
+            "available_sets": [ts.to_dict() for ts in self.available_sets],
+            "weather": {
+                "conditions": [wc.to_dict() for wc in self.weather_conditions]
+            }
+        }
+
 # --- Execution ---
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -60,35 +78,10 @@ if __name__ == "__main__":
     # Load the telemetry into our strictly typed objects
     race_weekend = Telemetry.load_from_json(target_file)
     print(f"Target telemetry '{target_file}' successfully loaded!")
-    
-    # print("\n=== RACE ===")
-    # for key, value in vars(race_weekend.race).items():
-    #      print(f"  {key}: {value}")
 
-    # print("\n=== CAR ===")
-    # for key, value in vars(race_weekend.car).items():
-    #     print(f"  {key}: {value}")
-        
-    # print("\n=== TRACK ===")
-    # print(f"  Name: {race_weekend.track.name}")
-    # print(f"  Total Segments: {len(race_weekend.track.segments)}")
-    # for seg in race_weekend.track.segments:
-    #     radius_str = f", radius: {seg.radius_m}m" if seg.radius_m else ""
-    #     print(f"    Segment {seg.id}: {seg.type} (length: {seg.length_m}m{radius_str})")
-
-    # print("\n=== TYRE COMPOUNDS ===")
-    # for name, props in race_weekend.tyre_properties.items():
-    #     print(f"  Compound: {name}")
-    #     for key, value in vars(props).items():
-    #         print(f"    {key}: {value}")
-
-    # print("\n=== AVAILABLE TYRE SETS ===")
-    # for t_set in race_weekend.available_sets:
-    #     print(f"  Set IDs {t_set.ids} -> Compound: {t_set.compound}")
-
-    # print("\n=== WEATHER CONDITIONS ===")
-    # for weather in race_weekend.weather_conditions:
-    #     print(f"  Condition ID {weather.id}: {weather.condition} (duration: {weather.duration_s}s)")
-    #     for key, value in vars(weather).items():
-    #         if key not in ['id', 'condition', 'duration_s']:
-    #             print(f"    {key}: {value}")
+    # Serialize back to canonical JSON format and write to file
+    base_name = os.path.splitext(os.path.basename(target_file))[0]
+    output_file = f"parsed_{base_name}.json"
+    with open(output_file, 'w') as f:
+        json.dump(race_weekend.to_dict(), f, indent=2)
+    print(f"Parsed telemetry written to '{output_file}'")
