@@ -1,0 +1,14 @@
+{
+  "car": {
+    "max_speed_m/s": 90,
+    "accel_m/se2": 10,
+    "brake_m/se2": 20,
+    "crawl_constant_m/s": 10
+  },
+  "track": {
+    "segments": [
+      {"id": 1, "type": "straight", "length_m": 1000},
+      {"id": 2, "type": "corner", "radius_m": 50, "length_m": 100}
+    ]
+  }
+}
