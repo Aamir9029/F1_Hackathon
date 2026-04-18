@@ -26,5 +26,23 @@ class TestPhysics(unittest.TestCase):
         friction = get_current_friction(1.8, 0.5, 1.0)
         self.assertEqual(friction, 1.3)
 
+    def test_refuel_and_pit_example(self):
+        # Example from Page 9: 30L refuel, 10L/s rate, 5s swap, 20s base
+        # Expected total: 28 seconds
+        from src.physics.resources import get_total_pit_stop_time
+        total_time = get_total_pit_stop_time(30, 10, 5, 20)
+        self.assertEqual(total_time, 28)
+
+    def test_weather_kinematics(self):
+        # Testing that a 0.5 multiplier doubles the distance needed to accelerate
+        from src.physics.kinematics import solve_straight_segment
+        # Normal dry weather (accel 10)
+        d_accel_dry, _, _, _ = solve_straight_segment(1000, 0, 100, 100, 10, 20, 1.0, 1.0)
+        # Cold/Wet weather (0.5 acceleration multiplier -> effective accel 5)
+        d_accel_wet, _, _, _ = solve_straight_segment(1000, 0, 100, 100, 10, 20, 0.5, 1.0)
+        
+        # d = v^2 / 2a. If a is halved, d is doubled.
+        self.assertAlmostEqual(d_accel_wet, d_accel_dry * 2)
+
 if __name__ == '__main__':
     unittest.main()
