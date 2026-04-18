@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import List, Dict
 import json
+import sys
+import os
 from car_obj import Car
 from race_obj import Race
 from track_segments_obj import Track
@@ -45,12 +47,23 @@ class Telemetry:
 
 # --- Execution ---
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python3 scanner.py <telemetry_file.txt>")
+        sys.exit(1)
+        
+    target_file = sys.argv[1]
+    
+    if not os.path.exists(target_file):
+        print(f"Error: The file '{target_file}' was not found in the project root.")
+        sys.exit(1)
+
     # Load the telemetry into our strictly typed objects
-    race_weekend = Telemetry.load_from_json("1.txt")
+    race_weekend = Telemetry.load_from_json(target_file)
+    print(f"Target telemetry '{target_file}' successfully loaded!")
     
     # print("\n=== RACE ===")
     # for key, value in vars(race_weekend.race).items():
-    #     print(f"  {key}: {value}")
+    #      print(f"  {key}: {value}")
 
     # print("\n=== CAR ===")
     # for key, value in vars(race_weekend.car).items():
