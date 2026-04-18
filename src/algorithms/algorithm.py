@@ -1,93 +1,104 @@
-from src.physics.kinematics import get_distance_to_reach_speed, get_max_corner_speed
-
-
-def _get_value(mapping, *keys, default=None):
-    for key in keys:
-        if key in mapping:
-            return mapping[key]
-    return default
-
+from src.physics import (
+    get_distance_to_reach_speed, 
+    get_max_corner_speed, 
+    solve_straight_segment,
+    calculate_total_straight_fuel,
+    get_straight_degradation,
+    get_braking_degradation,
+    get_corner_degradation
+)
 
 def _extract_car_stats(car):
     return {
-        "max_speed": _get_value(car, "max_speed_m/s", "max_speed_mps", default=50.0),
-        "accel": _get_value(car, "accel_m/se2", "accel_mps2", default=5.0),
-        "brake": _get_value(car, "brake_m/se2", "brake_mps2", default=5.0),
-        "crawl": _get_value(car, "crawl_constant_m/s", "crawl_constant_mps", default=1.0),
+        "max_speed": car.get("max_speed_m/s", 50.0),
+        "accel": car.get("accel_m/se2", 5.0),
+        "brake": car.get("brake_m/se2", 5.0),
+        "crawl": car.get("crawl_constant_m/s", 1.0),
     }
 
-
-def _calculate_peak_speed(entry_speed, corner_speed, straight_length, accel_rate, brake_rate, max_speed):
-    if accel_rate <= 0 or brake_rate <= 0:
-        return max_speed
-
-    accel_term = 1.0 / (2.0 * accel_rate)
-    brake_term = 1.0 / (2.0 * brake_rate)
-    denominator = accel_term + brake_term
-
-    if denominator <= 0:
-        return max_speed
-
-    numerator = straight_length + (entry_speed**2) * accel_term + (corner_speed**2) * brake_term
-    peak_speed_sq = max(0.0, numerator / denominator)
-    return min(max_speed, peak_speed_sq**0.5)
-
-
-def plan_straight_action(car, straight, next_segment, entry_speed, tyre_friction):
-    """Return the action for a straight and the speed leaving the segment."""
-
-    stats = _extract_car_stats(car)
+def plan_straight_action(car_state, straight, next_segment, entry_speed, weather_data):
+    """
+    Uses Level 4 physics to plan a straight and track resource consumption.
+    """
+    stats = _extract_car_stats(car_state.car_config)
     max_speed = stats["max_speed"]
     accel = stats["accel"]
     brake = stats["brake"]
     crawl = stats["crawl"]
-    length = straight["length_m"]
+    
+    # Get current friction for safety
+    current_friction = car_state.get_current_friction(weather_data['condition'])
+    
+    # 1. Determine exit speed needed for the next corner
+    next_corner_speed = max_speed
+    if next_segment and next_segment["type"] == "corner":
+        next_corner_speed = get_max_corner_speed(current_friction, next_segment["radius_m"], crawl)
 
-    next_corner_speed = None
-    if next_segment and next_segment["type"] == "corner" and "radius_m" in next_segment:
-        next_corner_speed = min(max_speed, get_max_corner_speed(tyre_friction, next_segment["radius_m"], crawl))
+    # 2. Solve the kinematics (Three-Phase: Accel, Cruise, Brake)
+    # Applying weather multipliers from Level 3
+    accel_mult = weather_data.get('acceleration_multiplier', 1.0)
+    brake_mult = weather_data.get('deceleration_multiplier', 1.0)
+    
+    d_accel, d_cruise, d_brake, t_segment = solve_straight_segment(
+        straight["length_m"], entry_speed, max_speed, next_corner_speed, 
+        accel, brake, accel_mult, brake_mult
+    )
 
-    if next_corner_speed is not None:
-        distance_to_max = get_distance_to_reach_speed(entry_speed, max_speed, accel)
-        braking_from_max = get_distance_to_reach_speed(next_corner_speed, max_speed, brake)
+    # 3. Calculate Resource Costs
+    fuel_cost = calculate_total_straight_fuel(d_accel, d_cruise, d_brake, entry_speed, max_speed, next_corner_speed)
+    
+    # Tyre wear
+    # Get degradation rate for this tyre/weather combo
+    from src.physics.data_models import get_tyre_specs
+    _, _, deg_rate = get_tyre_specs(car_state.tyre_set['compound'], weather_data['condition'])
+    
+    wear = get_straight_degradation(deg_rate, d_accel + d_cruise)
+    wear += get_braking_degradation(max_speed, next_corner_speed, deg_rate)
 
-        if distance_to_max + braking_from_max <= length:
-            target_speed = max_speed
-            brake_start = braking_from_max
-        else:
-            target_speed = _calculate_peak_speed(
-                entry_speed,
-                next_corner_speed,
-                length,
-                accel,
-                brake,
-                max_speed,
-            )
-            brake_start = get_distance_to_reach_speed(next_corner_speed, target_speed, brake)
-
-        exit_speed = next_corner_speed
-    else:
-        target_speed = max_speed
-        brake_start = 0.0
-        exit_speed = target_speed
+    # 4. Update the Car State
+    car_state.fuel -= fuel_cost
+    car_state.tyre_set['degradation'] += wear
+    car_state.total_time += t_segment
+    
+    if car_state.tyre_set['degradation'] >= 1.0 or car_state.fuel <= 0:
+        car_state.is_limp_mode = True
 
     action = {
         "id": straight["id"],
         "type": "straight",
-        "target_m/s": round(target_speed, 3),
-        "brake_start_m_before_next": round(brake_start, 3),
+        "target_m/s": round(max_speed, 3),
+        "brake_start_m_before_next": round(d_brake, 3),
     }
 
-    return action, exit_speed
+    return action, next_corner_speed
 
+def handle_corner(car_state, corner, entry_speed, weather_data):
+    """
+    Level 4 Cornering: Constant speed, tracks wear and fuel.
+    """
+    length = corner["length_m"]
+    radius = corner["radius_m"]
+    
+    # Constant speed through corner
+    t_segment = length / entry_speed if entry_speed > 0 else 0
+    
+    # Resources
+    fuel_cost = calculate_total_straight_fuel(0, length, 0, entry_speed, entry_speed, entry_speed)
+    
+    from src.physics.data_models import get_tyre_specs
+    _, _, deg_rate = get_tyre_specs(car_state.tyre_set['compound'], weather_data['condition'])
+    wear = get_corner_degradation(entry_speed, radius, deg_rate)
+    
+    # Update State
+    car_state.fuel -= fuel_cost
+    car_state.tyre_set['degradation'] += wear
+    car_state.total_time += t_segment
+    
+    if car_state.tyre_set['degradation'] >= 1.0 or car_state.fuel <= 0:
+        car_state.is_limp_mode = True
 
-def handle_corner(car, corner, entry_speed, safe_corner_speed=None):
-    """Return the corner action and the speed leaving the corner."""
-
-    exit_speed = entry_speed if safe_corner_speed is None else min(entry_speed, safe_corner_speed)
     action = {
         "id": corner["id"],
         "type": "corner",
     }
-
-    return action, exit_speed
+    return action, entry_speed
