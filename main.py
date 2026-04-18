@@ -2,7 +2,9 @@ import json
 import sys
 import os
 from scanner import Telemetry
-from src.physics.kinematics import get_max_corner_speed, get_distance_to_reach_speed
+import sys
+
+from src.algorithms.strategy import build_strategy
 
 def run_level_1_simulation(json_path):
     race_weekend = Telemetry.load_from_json(json_path)

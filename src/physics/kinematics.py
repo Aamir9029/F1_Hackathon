@@ -5,7 +5,9 @@ def get_max_corner_speed(tyre_friction, radius, crawl_constant):
     """
     Formula: max_corner_speed = sqrt(tyre_friction * gravity * radius) + crawl_constant
     """
-    return math.sqrt(tyre_friction * GRAVITY * radius) + crawl_constant
+    effective_friction = max(0.0, tyre_friction)
+    effective_radius = max(0.0, radius)
+    return math.sqrt(effective_friction * GRAVITY * effective_radius) + crawl_constant
 
 def get_time_to_reach_speed(v_initial, v_final, acceleration):
     """

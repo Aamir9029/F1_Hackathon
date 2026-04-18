@@ -27,4 +27,4 @@ def get_current_friction(base_friction, total_degradation, weather_multiplier):
     """
     Formula: friction = (base - total_degradation) * weather_multiplier
     """
-    return (base_friction - total_degradation) * weather_multiplier
+    return max(0.0, (base_friction - total_degradation) * weather_multiplier)
