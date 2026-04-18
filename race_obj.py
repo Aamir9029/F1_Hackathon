@@ -27,3 +27,18 @@ class Race:
             starting_weather_condition_id=data.get("starting_weather_condition_id", 0),
             time_reference_s=data.get("time_reference_s", 0.0)
         )
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "laps": self.laps,
+            "base_pit_stop_time_s": self.base_pit_stop_time_s,
+            "pit_tyre_swap_time_s": self.pit_tyre_swap_time_s,
+            "pit_refuel_rate_l/s": self.pit_refuel_rate_l_s,
+            "corner_crash_penalty_s": self.corner_crash_penalty_s,
+            "pit_exit_speed_m/s": self.pit_exit_speed_m_s,
+            "fuel_soft_cap_limit_l": self.fuel_soft_cap_limit_l,
+            "starting_weather_condition_id": self.starting_weather_condition_id,
+            "time_reference_s": self.time_reference_s
+        }
+

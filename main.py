@@ -175,10 +175,12 @@ if __name__ == "__main__":
     else:
         score = calculate_level1_score(time_ref, total_race_time)
 
-    # Write JSON output
-    json_output_file = f"output_{level}.json"
-    with open(json_output_file, 'w') as f:
-        json.dump(strategy, f, indent=2)
+    # Write JSON output (not for level 4 — only parsed file is needed)
+    if level != 4:
+        json_output_file = f"output_{level}.json"
+        with open(json_output_file, 'w') as f:
+            json.dump(strategy, f, indent=2)
+        print(f"JSON output:     {json_output_file}")
 
     # Write score txt file
     score_output_file = f"level{level}_score.txt"
@@ -191,5 +193,4 @@ if __name__ == "__main__":
     print(f"Race Time:       {total_race_time:.2f}s")
     print(f"Reference Time:  {time_ref:.2f}s")
     print(f"Score:           {score:.2f}")
-    print(f"JSON output:     {json_output_file}")
     print(f"Score output:    {score_output_file}")

@@ -23,3 +23,15 @@ class Car:
             initial_fuel_l=data.get("initial_fuel_l", 0.0),
             fuel_consumption_l_m=data.get("fuel_consumption_l/m", 0.0)
         )
+
+    def to_dict(self) -> dict:
+        return {
+            "max_speed_m/s": self.max_speed_m_s,
+            "accel_m/se2": self.accel_m_se2,
+            "brake_m/se2": self.brake_m_se2,
+            "limp_constant_m/s": self.limp_constant_m_s,
+            "crawl_constant_m/s": self.crawl_constant_m_s,
+            "fuel_tank_capacity_l": self.fuel_tank_capacity_l,
+            "initial_fuel_l": self.initial_fuel_l,
+            "fuel_consumption_l/m": self.fuel_consumption_l_m
+        }

@@ -17,6 +17,19 @@ class TyreCompound:
     def from_dict(cls, data: dict):
         return cls(**data)
 
+    def to_dict(self) -> dict:
+        return {
+            "life_span": self.life_span,
+            "dry_friction_multiplier": self.dry_friction_multiplier,
+            "cold_friction_multiplier": self.cold_friction_multiplier,
+            "light_rain_friction_multiplier": self.light_rain_friction_multiplier,
+            "heavy_rain_friction_multiplier": self.heavy_rain_friction_multiplier,
+            "dry_degradation": self.dry_degradation,
+            "cold_degradation": self.cold_degradation,
+            "light_rain_degradation": self.light_rain_degradation,
+            "heavy_rain_degradation": self.heavy_rain_degradation
+        }
+
 @dataclass
 class TyreSet:
     ids: List[int]
@@ -25,3 +38,6 @@ class TyreSet:
     @classmethod
     def from_dict(cls, data: dict):
         return cls(**data)
+
+    def to_dict(self) -> dict:
+        return {"ids": self.ids, "compound": self.compound}
